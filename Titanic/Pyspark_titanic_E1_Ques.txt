@@ -1,0 +1,16 @@
+Step 1 
+The goal of this step is to read the data from the local folder. You should infer the schema (e.g., columns) from the csv file. Tip: explore the spark_csv package from databricks.
+
+Step 2
+The goal of this step is to familiarize yourself with the dataset. This step is useful in detecting data problems, informing the data engineering steps, and informing the feature selection processes. You should: 
+i) Print the dataset and verify that the schema contains all the variables. 
+ii) Print the first 10 rows from the dataset. 
+iii) Obtain summary statistics for all variables in the dataframe. Pay attention to whether there are missing data as well as whether the field appears to be continuous or discrete. 
+iv) For each of the string columns (except name and ticket), print the count of the 10 most frequent values ordered by descending order of frequency. 
+v) Based on the above, which columns would you keep as features and which would you drop? Justify your answer.
+
+Step 3 :
+The goal of this step is to engineer the necessary features for the machine learning model. You should: 
+i) Select all feature columns you plan to use in addition to the target variable (i.e., ‘Survived’) and covert all numerical columns into double data type. Tip: you can use the .cast() from pyspark.sql.functions. 
+ii) Replace the missing values in the Age column with the mean value. Create also a new variable (e.g., ‘AgeNA’) indicating whether the value of age was missing or not. 
+iii) Print the revised dataframe and recalculate the summary statistics.
