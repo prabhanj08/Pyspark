@@ -1,0 +1,33 @@
+Does PySpark code run in JVM or Python subprocess?
+
+1. What kind of code is submitted to the spark worker node? Is it the python code or a translated equivalent Java code submitted to the spark worker node?
+2. Is the add operation in the reduce treated as UDF and thus run in a python subprocess on the worker node?
+3. If the add operation run in a python subprocess on the worker node, does the worker JVM communicates with the python subprocess for each number in a partition being added? If this is the case, it means a lot of overhead.
+
+
+
+Answer - 
+In PySpark, Python and JVM codes live in separate OS processes. PySpark uses Py4J, which is a framework that facilitates interoperation between the two languages, to exchange data between the Python and the JVM processes.
+
+When you launch a PySpark job, it starts as a Python process, which then spawns a JVM instance and runs some PySpark specific code in it. It then instantiates a Spark session in that JVM, which becomes the driver program that Spark sees. That driver program connects to the Spark master or spawns an in-proc one, depending on how the session is configured.
+
+When you create RDDs or Dataframes, those are stored in the memory of the Spark cluster just as RDDs and Dataframes created by Scala or Java applications. Transformations and actions on them work just as they do in JVM, with one notable difference: anything, which involves passing the data through Python code, runs outside the JVM. So, if you create a Dataframe, and do something like:
+
+df.select("foo", "bar").where(df["foo"] > 100).count()
+this runs entirely in the JVM as there is no Python code that the data must pass through. On the other side, if you do:
+
+a = t.reduce(add)
+since the add operator is a Python one, the RDD gets serialised, then sent to one or more Python processes where the reduction is performed, then the result is serialised again and returned to the JVM, and finally transferred over to the Python driver process for the final reduction.
+
+The way this works (which coves your Q1) is like this:
+
+each Spark JVM executor spawns a new Python subprocess running a special PySpark script
+the Python driver serialises the bytecode that has to be executed by each Spark task (e.g., the add operator) and pickles it together with some additional data
+the JVM executor serialises its RDD partitions and sends them over to its Python subprocess together with the serialised Python bytecode, which it received from the driver
+the Python code runs over the RDD data
+the result is serialised back and sent to the JVM executor
+The JVM executors use network sockets to talk to the Python subprocesses they spawn and the special PySpark scripts they launch run a loop whose task is to sit there and expect serialised data and bytecode to run.
+
+Regarding Q3, the JVM executors transfer whole RDD partitions to the Python subprocess, not single items. You should strive to use Pandas UDFs since those can be vectorised.
+
+If you are interested in the details, start with the source code of python/pyspark/rdd.py and take a look at the RDD class.
